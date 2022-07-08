@@ -10,7 +10,7 @@ import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.ZooKeeper;
 
-public class DistributedLock implements Runnable, Watcher {
+public class DistributedLock2 implements Runnable, Watcher {
     private final String hostPort = "localhost:2181,localhost:2182,localhost:2183";
     private final static String nodeLockPath = "/DistributedLock";
     private ZooKeeper zkNode;
@@ -20,7 +20,7 @@ public class DistributedLock implements Runnable, Watcher {
     private boolean done = true;
     private boolean start = false;
     
-    public DistributedLock() {
+    public DistributedLock2() {
         // TODO Auto-generated constructor stub
         count++;
         number = count;
@@ -32,13 +32,14 @@ public class DistributedLock implements Runnable, Watcher {
                     nodeEphemeralPath = zkNode.create(nodeLockPath + "/queue", "".getBytes(),
                     ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL_SEQUENTIAL);
 //                    System.out.println(nodeEphemeralPath);
+                    // Thêm watcher vào znode đằng trước nó.
                     if(zkNode.getAllChildrenNumber(nodeLockPath) > 1) {
-//                      //;ấy nút được tạo đằng trước nó.
+//                        System.out.println(zkNode.getAllChildrenNumber(nodeLockPath) + "ffffff");
                         String nodeWatch = new String(zkNode.getData(nodeLockPath, false, null), "UTF-8");
-                        // Thêm watcher vào znode đằng trước nó.
+//                        System.out.println(nodeWatch + "gggg");
                         zkNode.addWatch(nodeWatch, AddWatchMode.PERSISTENT);
                     } else {
-                        start = true; // Đánh dấu không có node nào trong hàng đợi. để khi chạy luồng này được thực hiện luôn.
+                        start = true;
                     }
                     zkNode.setData(nodeLockPath, nodeEphemeralPath.getBytes(), -1);
 //                }
@@ -54,14 +55,14 @@ public class DistributedLock implements Runnable, Watcher {
     }
     
     public void run() {
-        if(start == true) { // LUồng được chạy ngay do không cần phải đợi.
+        if(start == true) {
             try {
                 System.out.println("*************************");
-                System.out.println("Thread Program1 " + number + " is holding lock");
+                System.out.println("Thread Program2" + number + " is holding lock");
                 System.out.println("*************************");
                 Thread.sleep(10000);
                 zkNode.delete(nodeEphemeralPath, -1);
-                System.out.println("Thread Program1 " + number + " shutdown");
+                System.out.println("Thread Program2" + number + " shutdown");
                 zkNode.close();
             } catch (InterruptedException | KeeperException e) {
                 // TODO Auto-generated catch block
@@ -85,15 +86,16 @@ public class DistributedLock implements Runnable, Watcher {
     public void process(WatchedEvent event) {
         System.out.println("Event received: " + event.toString());
         System.out.println("Event: " + event.getPath());
-//        Sự kiện kích hoạt khi nút tạo ngay trước nó bị xóa.
+//        Sự kiện kích hoạt khi nút đằng trước nó bị xóa.
         if(event.getType() == Event.EventType.NodeDeleted) {
             try {
                 System.out.println("*************************");
-                System.out.println("Thread Program1 " + number + " is holding lock");
+                System.out.println("Thread Program2 " + number + " is holding lock");
                 System.out.println("*************************");
                 Thread.sleep(10000);
-                zkNode.delete(nodeEphemeralPath, -1);// Xóa nút, kích hoạt watcher của nút tiếp theo.
-                System.out.println("Thread Program1 " + number + " shutdown");
+                zkNode.delete(nodeEphemeralPath, -1);
+                System.out.println("Thread Program2 " + number + " shutdown");
+//                System.out.println("Thread" + number + " shutdown" + nodeEphemeralPath);
                 zkNode.close();
                 this.done = false;
             } catch (Exception e) {
